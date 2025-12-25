@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Giriş - YKS Planlayıcı</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <h1>Giriş Yap</h1>
+      <p class="muted">Devam etmek için giriş yapmalısın.</p>
+
+      <div class="row">
+        <input id="email" type="email" placeholder="E-posta" />
+      </div>
+      <div class="row">
+        <input id="password" type="password" placeholder="Şifre" />
+      </div>
+      <div class="row">
+        <button id="btnLogin">Giriş</button>
+      </div>
+
+      <p id="msg" class="muted"></p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
