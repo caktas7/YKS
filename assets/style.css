@@ -54,3 +54,67 @@ button { padding: 10px 14px; border-radius: 12px; border: 0; background:#111; co
   background:#fff; display:flex; align-items:center; justify-content:center;
   font-weight: 800;
 }
+
+
+select {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+}
+
+details.course {
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 10px;
+  margin-top: 10px;
+}
+details.course summary {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 800;
+}
+.topics {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #eee;
+  border-radius: 12px;
+}
+.check.done {
+  opacity: 0.65;
+  text-decoration: line-through;
+}
+.small {
+  font-size: 12px;
+  color: #6a6f7a;
+}
+
+.adminLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 12px;
+}
+.adminLine .meta { color:#6a6f7a; font-size: 12px; }
+.btnSmall {
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+.btnDanger {
+  background: #b00020;
+}
+
