@@ -163,7 +163,8 @@ async function renderTopicsPage(user, exam, containerId){
       const done = completionMap.get(t.id) === true;
       const label = document.createElement("label");
       label.className = "check" + (done ? " done" : "");
-      label.innerHTML = `<input type="checkbox" ${done ? "checked" : ""} /> <span>${t.name}</span>`;
+      label.innerHTML = `<span class="topicText">${t.name}</span><input type="checkbox" ${done ? "checked" : ""} />`;
+
       const cb = label.querySelector("input");
 
       cb.addEventListener("change", async () => {
