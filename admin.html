@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Yönetici Paneli</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <h1>Yönetici Paneli</h1>
+      <p class="muted">Bu sayfa sadece yönetici içindir.</p>
+
+      <div class="row">
+        <input id="adminPin" type="password" placeholder="Yönetici Kodu" />
+        <button id="btnAdminLogin">Giriş</button>
+      </div>
+
+      <div id="adminArea" class="hidden">
+        <hr />
+        <h2>Konu Yönetimi</h2>
+        <p class="muted">Bu bölüm daha sonra Supabase’e bağlanacak.</p>
+
+        <h2>Haftalık Plan Yönetimi</h2>
+        <p class="muted">Bu bölüm daha sonra Supabase’e bağlanacak.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
