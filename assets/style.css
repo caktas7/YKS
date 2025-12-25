@@ -125,6 +125,17 @@ details.course summary{
 .check { justify-content: space-between; }
 .check .topicText { flex: 1; }
 .check input[type="checkbox"] { flex: 0 0 auto; }
+/* make each topic row take full width */
+.check{
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* push checkbox to the far right */
+.check input[type="checkbox"]{
+  margin-left: auto;
+}
 
 
 .check.done{ opacity:0.65; text-decoration: line-through; }
