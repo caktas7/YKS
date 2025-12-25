@@ -121,6 +121,12 @@ details.course summary{
   border-radius:14px;
   background: rgba(255,255,255,0.03);
 }
+
+.check { justify-content: space-between; }
+.check .topicText { flex: 1; }
+.check input[type="checkbox"] { flex: 0 0 auto; }
+
+
 .check.done{ opacity:0.65; text-decoration: line-through; }
 .small{ font-size:12px; color:var(--muted); }
 
