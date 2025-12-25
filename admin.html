@@ -7,29 +7,85 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+  <nav class="nav">
+    <div class="brand">YKS Planlayıcı</div>
+    <a href="index.html">Anasayfa</a>
+    <a href="weekly.html">Haftalık Plan</a>
+    <a href="tyt.html">TYT Konular</a>
+    <a href="ayt.html">AYT Konular</a>
+    <a href="admin.html" class="active">Yönetici</a>
+  </nav>
+
   <main class="container">
     <section class="card">
       <h1>Yönetici Paneli</h1>
-      <p class="muted">Bu sayfa sadece yönetici içindir.</p>
+      <p class="muted">Bu sayfaya sadece yönetici erişebilir.</p>
+      <div class="row">
+        <button id="btnLogout">Çıkış Yap</button>
+      </div>
+      <p id="adminMsg" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>Konu Ekle</h2>
+      <div class="row">
+        <select id="topicExam">
+          <option value="TYT">TYT</option>
+          <option value="AYT">AYT</option>
+        </select>
+        <input id="topicCourse" placeholder="Ders (örn: TYT Matematik)" />
+      </div>
 
       <div class="row">
-        <input id="adminPin" type="password" placeholder="Yönetici Kodu" />
-        <button id="btnAdminLogin">Giriş</button>
+        <input id="topicName" placeholder="Konu adı (örn: Problemler)" />
+        <input id="topicOrder" type="number" placeholder="Sıra (opsiyonel)" />
+        <button id="btnAddTopic">Kaydet</button>
       </div>
 
-      <div id="adminArea" class="hidden">
-        <hr />
-        <h2>Konu Yönetimi</h2>
-        <p class="muted">Bu bölüm daha sonra Supabase’e bağlanacak.</p>
+      <h3>Mevcut Konular</h3>
+      <div id="adminTopics" class="list"></div>
+    </section>
 
-        <h2>Haftalık Plan Yönetimi</h2>
-        <p class="muted">Bu bölüm daha sonra Supabase’e bağlanacak.</p>
+    <section class="card">
+      <h2>Görev Ekle</h2>
+      <div class="row">
+        <input id="taskDate" type="date" />
+        <select id="taskExam">
+          <option value="TYT">TYT</option>
+          <option value="AYT">AYT</option>
+        </select>
       </div>
+
+      <div class="row">
+        <input id="taskCourse" placeholder="Ders (örn: TYT Matematik)" />
+        <input id="taskTopic" placeholder="Konu (örn: Problemler)" />
+      </div>
+
+      <div class="row">
+        <select id="taskType">
+          <option value="Çalışma">Çalışma</option>
+          <option value="Soru">Soru</option>
+          <option value="Tekrar">Tekrar</option>
+        </select>
+        <input id="taskDuration" type="number" placeholder="Süre (dk)" />
+        <button id="btnAddTask">Kaydet</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Haftalık Görevler</h2>
+      <p class="muted">Seçilen haftanın görevlerini listeler.</p>
+
+      <div class="row">
+        <input id="weekStart" type="date" />
+        <button id="btnLoadWeek">Listele</button>
+      </div>
+
+      <div id="adminTasks" class="list"></div>
     </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/app.js"></script>
-
 </body>
 </html>
