@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>YKS Planlayıcı</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="brand">YKS Planlayıcı</div>
+    <a href="index.html" class="active">Anasayfa</a>
+    <a href="weekly.html">Haftalık Plan</a>
+    <a href="tyt.html">TYT Konular</a>
+    <a href="ayt.html">AYT Konular</a>
+  </nav>
+
+  <main class="container">
+    <section class="card">
+      <h1>YKS’ye Kalan Süre</h1>
+      <div class="countdown" id="countdown">—</div>
+      <p class="muted">Not: Bu sayfa sadece görüntüleme içindir.</p>
+    </section>
+
+    <section class="grid2">
+      <div class="card">
+        <h2>TYT Genel Tamamlanma</h2>
+        <div class="big" id="tytOverall">%0</div>
+        <div class="muted" id="tytOverallMeta">0 / 0 konu</div>
+      </div>
+      <div class="card">
+        <h2>AYT Genel Tamamlanma</h2>
+        <div class="big" id="aytOverall">%0</div>
+        <div class="muted" id="aytOverallMeta">0 / 0 konu</div>
+      </div>
+    </section>
+
+    <section class="grid2">
+      <div class="card">
+        <h2>Bugünün Planı</h2>
+        <div class="donut" id="donutToday"><span>%0</span></div>
+        <div class="muted" id="todayMeta">0 / 0 görev</div>
+      </div>
+      <div class="card">
+        <h2>Bu Haftanın Planı</h2>
+        <div class="donut" id="donutWeek"><span>%0</span></div>
+        <div class="muted" id="weekMeta">0 / 0 görev</div>
+      </div>
+    </section>
+
+    <section class="grid2">
+      <div class="card">
+        <h2>TYT Ders İlerleme</h2>
+        <div id="tytCourses" class="list"></div>
+      </div>
+      <div class="card">
+        <h2>AYT (Eşit Ağırlık) Ders İlerleme</h2>
+        <div id="aytCourses" class="list"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
