@@ -1,4 +1,5 @@
 
+
 function $(id){ return document.getElementById(id); }
 
 function escapeHtml(s){
@@ -205,6 +206,72 @@ async function deleteDayNote(note_date){
   if (error) throw error;
 }
 
+// ---- Course links ----
+async function fetchCourseLinks(exam){
+  const { data, error } = await sb
+    .from("course_links")
+    .select("id, exam, course, title, url, sort_order")
+    .eq("exam", exam)
+    .order("course", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("title", { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+function groupLinksByCourse(links){
+  const m = new Map();
+  links.forEach(l => {
+    const c = (l.course || "").trim();
+    if (!m.has(c)) m.set(c, []);
+    m.get(c).push(l);
+  });
+  return m;
+}
+
+async function renderCourseLinks(exam, containerId){
+  const container = $(containerId);
+  if (!container) return;
+
+  container.innerHTML = `<p class="muted">Yükleniyor...</p>`;
+
+  const links = await fetchCourseLinks(exam);
+  if (!links.length){
+    container.innerHTML = `<p class="muted">Henüz link eklenmedi.</p>`;
+    return;
+  }
+
+  const byCourse = groupLinksByCourse(links);
+  container.innerHTML = "";
+
+  for (const [course, list] of byCourse.entries()){
+    const details = document.createElement("details");
+    details.className = "course";
+    details.open = false;
+
+    const summary = document.createElement("summary");
+    summary.innerHTML = `<b>${escapeHtml(course)}</b> <span>${list.length} link</span>`;
+    details.appendChild(summary);
+
+    const div = document.createElement("div");
+    div.className = "topics";
+
+    list.forEach(l => {
+      const a = document.createElement("a");
+      a.className = "item";
+      a.href = l.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.innerHTML = `<b>${escapeHtml(l.title)}</b><span class="small">Aç</span>`;
+      div.appendChild(a);
+    });
+
+    details.appendChild(div);
+    container.appendChild(details);
+  }
+}
+
 // ===================== Completion (auth only) =====================
 async function fetchTopicCompletion(){
   const { data, error } = await sb.from("topic_completion").select("topic_id, done");
@@ -327,7 +394,7 @@ function initWeeklyWeekControls(monday){
   const next = $("btnNextWeek");
   const label = $("weekLabel");
 
-  if (!picker && !prev && !next && !label) return; // not on weekly page
+  if (!picker && !prev && !next && !label) return;
 
   if (picker) picker.value = toISODate(monday);
 
@@ -726,6 +793,85 @@ async function saveAdminNotes(){
   alert("Notlar kaydedildi.");
 }
 
+// ----- Admin links -----
+async function loadAdminLinks(){
+  const el = $("adminLinks");
+  if (!el) return;
+
+  const { data, error } = await sb
+    .from("course_links")
+    .select("id, exam, course, title, url, sort_order")
+    .order("exam", { ascending: true })
+    .order("course", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("title", { ascending: true });
+
+  if (error){
+    el.innerHTML = `<p class="muted">Hata: ${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
+  el.innerHTML = "";
+  if (!data || data.length === 0){
+    el.innerHTML = `<p class="muted">Henüz link yok.</p>`;
+    return;
+  }
+
+  data.forEach(l => {
+    const row = document.createElement("div");
+    row.className = "adminLine";
+    row.innerHTML = `
+      <div style="flex:1;">
+        <div><b>${escapeHtml(l.exam)}</b> — ${escapeHtml(l.course)}</div>
+        <div>${escapeHtml(l.title)}</div>
+        <div class="small">${escapeHtml(l.url)}</div>
+      </div>
+      <button class="btnDanger">Sil</button>
+    `;
+    row.querySelector("button").addEventListener("click", async () => {
+      if (!confirm("Silinsin mi?")) return;
+      const { error } = await sb.from("course_links").delete().eq("id", l.id);
+      if (error) alert("Silinemedi: " + error.message);
+      await loadAdminLinks();
+      await renderCourseLinks("TYT", "tytLinks");
+      await renderCourseLinks("AYT", "aytLinks");
+    });
+    el.appendChild(row);
+  });
+}
+
+async function addAdminLink(){
+  const exam = $("linkExam")?.value;
+  const course = ($("linkCourse")?.value || "").trim();
+  const title = ($("linkTitle")?.value || "").trim();
+  const url = ($("linkUrl")?.value || "").trim();
+  const sortOrder = parseInt($("linkOrder")?.value || "0", 10);
+
+  if (!exam || !course || !title || !url){
+    alert("Lütfen sınav, ders, başlık ve URL gir.");
+    return;
+  }
+  if (!url.startsWith("http://") && !url.startsWith("https://")){
+    alert("URL 'https://' ile başlamalı.");
+    return;
+  }
+
+  const { error } = await sb.from("course_links").insert({
+    exam, course, title, url, sort_order: isNaN(sortOrder) ? 0 : sortOrder
+  });
+
+  if (error){
+    alert("Eklenemedi: " + error.message);
+    return;
+  }
+
+  $("linkTitle").value = "";
+  $("linkUrl").value = "";
+  $("linkOrder").value = "";
+
+  await loadAdminLinks();
+}
+
 // ===================== Login page =====================
 function initLoginPage(){
   const btn = $("btnLogin");
@@ -769,7 +915,6 @@ function initLoginPage(){
     return;
   }
 
-  // countdown (index may have it)
   initCountdown();
 
   // weekly page
@@ -779,10 +924,16 @@ function initLoginPage(){
     await renderWeeklyGrid(session, monday);
   }
 
-  // topic pages (only run if containers exist)
+  // topic pages
   await Promise.all([
     renderTopicsPage(session, "TYT", "tytTopics"),
     renderTopicsPage(session, "AYT", "aytTopics"),
+  ]);
+
+  // course links bottom sections
+  await Promise.all([
+    renderCourseLinks("TYT", "tytLinks"),
+    renderCourseLinks("AYT", "aytLinks"),
   ]);
 
   // admin wiring
@@ -790,13 +941,7 @@ function initLoginPage(){
     const ok = await requireAdmin(session.user);
     if (!ok) return;
 
-    // optional logout button inside admin panel if you still have it
-    $("btnLogout")?.addEventListener("click", async () => {
-      await sb.auth.signOut();
-      location.href = "index.html";
-    });
-
-    // add topic
+    // topic add
     $("btnAddTopic")?.addEventListener("click", async () => {
       const exam = $("topicExam").value;
       const course = $("topicCourse").value.trim();
@@ -848,9 +993,12 @@ function initLoginPage(){
 
     $("btnSaveNotes")?.addEventListener("click", saveAdminNotes);
 
+    // links admin
+    $("btnAddLink")?.addEventListener("click", addAdminLink);
+    await loadAdminLinks();
+
     // initial load
     await loadAdminWeekGrid($("weekStart").value);
     await renderAdminNotes($("weekStart").value);
   }
 })();
-
