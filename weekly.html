@@ -19,7 +19,15 @@
     <section class="card">
       <h1>Haftalık Plan</h1>
       <p class="muted">Plan saatlere göre gösterilir. Yapılanları işaretleyebilirsin.</p>
-      <div id="weeklyGrid" class="gridWrap"></div>
+      <div class="row">
+  <button id="btnPrevWeek">← Önceki</button>
+  <input id="weekPicker" type="date" />
+  <button id="btnNextWeek">Sonraki →</button>
+</div>
+<p id="weekLabel" class="muted"></p>
+
+<div id="weeklyGrid" class="gridWrap"></div>
+
     </section>
   </main>
 
