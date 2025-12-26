@@ -101,6 +101,34 @@
       <h3>Mevcut Konular</h3>
       <div id="adminTopics" class="list"></div>
     </section>
+
+<section class="card">
+  <h2>Ders Linkleri Yönetimi</h2>
+  <p class="muted">Bu linkler TYT/AYT sayfalarının altında görünür.</p>
+
+  <div class="row">
+    <select id="linkExam">
+      <option value="TYT">TYT</option>
+      <option value="AYT">AYT</option>
+    </select>
+    <input id="linkCourse" placeholder="Ders (örn: Matematik)" />
+  </div>
+
+  <div class="row">
+    <input id="linkTitle" placeholder="Link Başlığı (örn: Hocalara Geldik - TYT Matematik)" />
+    <input id="linkUrl" placeholder="URL (https://...)" />
+  </div>
+
+  <div class="row">
+    <input id="linkOrder" type="number" placeholder="Sıra (opsiyonel)" />
+    <button id="btnAddLink">Ekle</button>
+  </div>
+
+  <h3>Mevcut Linkler</h3>
+  <div id="adminLinks" class="list"></div>
+</section>
+
+    
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
