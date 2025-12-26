@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Page helpers
+// ---------- Page helpers ----------
 function isLoginPage(){ return location.pathname.endsWith("giris.html"); }
 function isAdminPage(){ return location.pathname.endsWith("admin.html"); }
 function goLogin(){
@@ -20,21 +20,17 @@ function getNextFromQuery(){
   return params.get("next");
 }
 
-// Navbar auth button (injected on all pages that have .nav)
+// Navbar auth button (injected)
 function renderNavAuthButton(session){
   const nav = document.querySelector(".nav");
   if (!nav) return;
 
-  // remove existing
   const old = document.getElementById("navAuthBtn");
   if (old) old.remove();
 
   const btn = document.createElement("button");
   btn.id = "navAuthBtn";
   btn.style.marginLeft = "auto";
-  btn.style.padding = "10px 14px";
-  btn.style.borderRadius = "12px";
-  btn.style.cursor = "pointer";
 
   if (session){
     btn.textContent = "Çıkış Yap";
@@ -50,20 +46,33 @@ function renderNavAuthButton(session){
   nav.appendChild(btn);
 }
 
-// Dates
+// ---------- Date helpers ----------
 function toISODate(d){
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth()+1).padStart(2,"0");
   const dd = String(d.getDate()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd}`;
 }
+function parseISODate(s){
+  // expects YYYY-MM-DD
+  const [y,m,d] = (s || "").split("-").map(x => parseInt(x,10));
+  if (!y || !m || !d) return null;
+  const dt = new Date(y, m-1, d);
+  dt.setHours(0,0,0,0);
+  return isNaN(dt.getTime()) ? null : dt;
+}
 function getWeekRange(base = new Date()){
   const d = new Date(base);
   d.setHours(0,0,0,0);
-  const mondayOffset = (d.getDay() + 6) % 7;
+  const mondayOffset = (d.getDay() + 6) % 7; // Mon start
   const monday = new Date(d); monday.setDate(d.getDate() - mondayOffset);
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
   return { monday, sunday };
+}
+function addDays(dateObj, days){
+  const d = new Date(dateObj);
+  d.setDate(d.getDate() + days);
+  return d;
 }
 const TR_DAYS = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
 function fmtDayTitle(dateObj){
@@ -71,18 +80,31 @@ function fmtDayTitle(dateObj){
   const mm = String(dateObj.getMonth()+1).padStart(2,"0");
   return `${TR_DAYS[dateObj.getDay()]} (${dd}.${mm})`;
 }
-
-// Donut
-function setDonut(el, percent, label){
-  if (!el) return;
-  const p = Math.max(0, Math.min(100, Math.round(percent)));
-  const deg = Math.round(p * 3.6);
-  el.style.background = `conic-gradient(var(--accent) ${deg}deg, rgba(255,255,255,0.10) ${deg}deg)`;
-  const span = el.querySelector("span");
-  if (span) span.textContent = (label ?? `%${p}`);
+function buildWeekDates(monday){
+  const dates = [];
+  for (let i=0;i<7;i++){
+    const d = new Date(monday);
+    d.setDate(monday.getDate()+i);
+    dates.push({ iso: toISODate(d), obj: d });
+  }
+  return dates;
 }
 
-// Countdown
+// week param in URL: ?week=YYYY-MM-DD (any date inside that week is fine)
+function getWeekFromURL(){
+  const params = new URLSearchParams(location.search);
+  const w = params.get("week");
+  const dt = parseISODate(w);
+  const { monday } = getWeekRange(dt || new Date());
+  return monday;
+}
+function setWeekInURL(mondayDateObj){
+  const u = new URL(location.href);
+  u.searchParams.set("week", toISODate(mondayDateObj));
+  location.href = u.toString();
+}
+
+// ---------- Countdown ----------
 function formatCountdown(ms){
   const total = Math.max(0, Math.floor(ms / 1000));
   const days = Math.floor(total / 86400);
@@ -99,7 +121,7 @@ function initCountdown(){
   setInterval(tick, 1000);
 }
 
-// Settings: time slots
+// ---------- Settings: time slots ----------
 async function getTimeSlots(){
   const fallback = [
     "08:00-09:00","09:00-10:00","10:00-11:00","11:00-12:00",
@@ -120,17 +142,8 @@ function parseStartTime(slotLabel){
   const p = slotLabel.split("-")[0].trim();
   return p.length === 5 ? p : p.slice(0,5);
 }
-function buildWeekDates(monday){
-  const dates = [];
-  for (let i=0;i<7;i++){
-    const d = new Date(monday);
-    d.setDate(monday.getDate()+i);
-    dates.push({ iso: toISODate(d), obj: d });
-  }
-  return dates;
-}
 
-// Fetchers (public-readable now)
+// ---------- Fetchers ----------
 async function fetchTopics(exam){
   const { data, error } = await sb
     .from("topics")
@@ -154,7 +167,7 @@ async function fetchWeeklyTasks(startISO, endISO){
   return data || [];
 }
 
-// Completion (requires login; only call when session exists)
+// completion requires login
 async function fetchTopicCompletion(){
   const { data, error } = await sb.from("topic_completion").select("topic_id, done");
   if (error) throw error;
@@ -182,7 +195,7 @@ async function upsertTaskDone(userId, taskId, done){
   if (error) throw error;
 }
 
-// Topics render (guest sees list; signed-in can tick)
+// ---------- Topics render (public view, login needed to tick) ----------
 function groupByCourse(topics){
   const m = new Map();
   topics.forEach(t => {
@@ -200,14 +213,12 @@ function updateCourseSummary(detailsEl){
   const sum = detailsEl.querySelector("summary span");
   if (sum) sum.textContent = `%${percent} (${done}/${total})`;
 }
-
 async function renderTopicsPage(session, exam, containerId){
   const container = $(containerId);
   if (!container) return;
 
   container.innerHTML = `<p class="muted">Yükleniyor...</p>`;
   const topics = await fetchTopics(exam);
-
   if (topics.length === 0){
     container.innerHTML = `<p class="muted">Henüz konu eklenmedi.</p>`;
     return;
@@ -237,21 +248,20 @@ async function renderTopicsPage(session, exam, containerId){
       label.innerHTML = `<span class="topicText">${t.name}</span><input type="checkbox" ${done ? "checked" : ""} />`;
 
       const cb = label.querySelector("input");
-
       if (!session){
         cb.disabled = true;
         label.addEventListener("click", () => goLogin());
       } else {
         cb.addEventListener("change", async () => {
           cb.disabled = true;
-          try {
+          try{
             await upsertTopicDone(session.user.id, t.id, cb.checked);
             label.classList.toggle("done", cb.checked);
             updateCourseSummary(details);
-          } catch (e) {
+          }catch(e){
             alert("Kaydedilemedi: " + e.message);
             cb.checked = !cb.checked;
-          } finally {
+          }finally{
             cb.disabled = false;
           }
         });
@@ -262,19 +272,43 @@ async function renderTopicsPage(session, exam, containerId){
 
     details.appendChild(topicsDiv);
     container.appendChild(details);
+
     if (session) updateCourseSummary(details);
     else summary.querySelector("span").textContent = `Toplam: ${list.length} konu`;
   }
 }
 
-// Weekly grid render (guest sees plan; signed-in can tick)
-async function renderWeeklyGrid(session){
+// ---------- Weekly page week controls ----------
+function initWeeklyWeekControls(monday){
+  const picker = $("weekPicker");
+  const prev = $("btnPrevWeek");
+  const next = $("btnNextWeek");
+  const label = $("weekLabel");
+
+  if (picker) picker.value = toISODate(monday);
+
+  const { sunday } = getWeekRange(monday);
+  if (label) label.textContent = `Hafta: ${toISODate(monday)} → ${toISODate(sunday)}`;
+
+  prev?.addEventListener("click", () => setWeekInURL(addDays(monday, -7)));
+  next?.addEventListener("click", () => setWeekInURL(addDays(monday, +7)));
+
+  picker?.addEventListener("change", () => {
+    const dt = parseISODate(picker.value);
+    const { monday: m2 } = getWeekRange(dt || new Date());
+    setWeekInURL(m2);
+  });
+}
+
+// ---------- Weekly grid render (ONLY TODAY clickable) ----------
+async function renderWeeklyGrid(session, monday){
   const wrap = $("weeklyGrid");
   if (!wrap) return;
 
-  const { monday, sunday } = getWeekRange(new Date());
+  const { sunday } = getWeekRange(monday);
   const startISO = toISODate(monday);
   const endISO = toISODate(sunday);
+  const todayISO = toISODate(new Date());
 
   wrap.innerHTML = `<p class="muted">Yükleniyor...</p>`;
 
@@ -282,10 +316,8 @@ async function renderWeeklyGrid(session){
     getTimeSlots(),
     fetchWeeklyTasks(startISO, endISO),
   ]);
-
   const doneMap = session ? await fetchTaskCompletion() : new Map();
 
-  // map cell -> task
   const cellMap = new Map();
   tasks.forEach(t => {
     if (!t.start_time) return;
@@ -323,37 +355,44 @@ async function renderWeeklyGrid(session){
         td.innerHTML = `<div class="small">—</div>`;
       } else {
         const done = session ? (doneMap.get(task.id) === true) : false;
+        const isTodayCell = (task.task_date === todayISO);
 
         td.innerHTML = `
-          <div class="slot ${done ? "done" : ""}">
-            <input type="checkbox" ${done ? "checked" : ""} />
-            <div class="txt">
+          <div class="slotCard ${done ? "done" : ""} ${(!isTodayCell ? "slotLocked" : "")}">
+            <div class="slotHead">
               <div class="course">${task.course}</div>
-              <div>${task.topic}</div>
-              <div class="small">${task.task_type} · ${task.exam}</div>
+              <input type="checkbox" ${done ? "checked" : ""} />
             </div>
+            <div>${task.topic}</div>
+            <div class="small">${task.task_type} · ${task.exam}${!isTodayCell ? " · (Kilitli)" : ""}</div>
           </div>
         `;
 
         const cb = td.querySelector("input");
-        const slotEl = td.querySelector(".slot");
+        const card = td.querySelector(".slotCard");
 
+        // Guest: login required
         if (!session){
           cb.disabled = true;
-          slotEl.addEventListener("click", () => goLogin());
+          card.addEventListener("click", () => goLogin());
         } else {
-          cb.addEventListener("change", async () => {
+          // Logged in BUT only today clickable
+          if (!isTodayCell){
             cb.disabled = true;
-            try{
-              await upsertTaskDone(session.user.id, task.id, cb.checked);
-              slotEl.classList.toggle("done", cb.checked);
-            }catch(e){
-              alert("Kaydedilemedi: " + e.message);
-              cb.checked = !cb.checked;
-            }finally{
-              cb.disabled = false;
-            }
-          });
+          } else {
+            cb.addEventListener("change", async () => {
+              cb.disabled = true;
+              try{
+                await upsertTaskDone(session.user.id, task.id, cb.checked);
+                card.classList.toggle("done", cb.checked);
+              }catch(e){
+                alert("Kaydedilemedi: " + e.message);
+                cb.checked = !cb.checked;
+              }finally{
+                cb.disabled = false;
+              }
+            });
+          }
         }
       }
 
@@ -368,54 +407,7 @@ async function renderWeeklyGrid(session){
   wrap.appendChild(table);
 }
 
-// Dashboard (guest shows placeholders)
-async function renderDashboard(session){
-  if (!$("tytCourses")) return;
-
-  const [tytTopics, aytTopics] = await Promise.all([fetchTopics("TYT"), fetchTopics("AYT")]);
-
-  const byCourse = (topics) => {
-    const m = new Map();
-    topics.forEach(t => {
-      if (!m.has(t.course)) m.set(t.course, 0);
-      m.set(t.course, m.get(t.course) + 1);
-    });
-    return Array.from(m.entries()).sort((a,b)=>a[0].localeCompare(b[0],"tr"));
-  };
-
-  const tytList = $("tytCourses");
-  const aytList = $("aytCourses");
-
-  tytList.innerHTML = "";
-  byCourse(tytTopics).forEach(([course,total]) => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `<b>${course}</b><span>${session ? "…" : `Toplam: ${total}`}</span>`;
-    tytList.appendChild(div);
-  });
-
-  aytList.innerHTML = "";
-  byCourse(aytTopics).forEach(([course,total]) => {
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `<b>${course}</b><span>${session ? "…" : `Toplam: ${total}`}</span>`;
-    aytList.appendChild(div);
-  });
-
-  if (!session){
-    $("tytOverall").textContent = "—";
-    $("aytOverall").textContent = "—";
-    $("tytOverallMeta").textContent = "Giriş yapınca ilerleme görünür";
-    $("aytOverallMeta").textContent = "Giriş yapınca ilerleme görünür";
-
-    setDonut($("donutToday"), 0, "—");
-    setDonut($("donutWeek"), 0, "—");
-    $("todayMeta").textContent = "Giriş yapınca görünür";
-    $("weekMeta").textContent = "Giriş yapınca görünür";
-  }
-}
-
-// Admin guard stays (requires login)
+// ---------- Admin ----------
 async function requireAdmin(user){
   const { data, error } = await sb
     .from("profiles")
@@ -431,7 +423,188 @@ async function requireAdmin(user){
   return true;
 }
 
-// Login page
+async function loadAdminTopics(){
+  const el = $("adminTopics");
+  if (!el) return;
+
+  const { data, error } = await sb
+    .from("topics")
+    .select("id, exam, course, name, sort_order")
+    .order("exam", { ascending: true })
+    .order("course", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error){ el.innerHTML = `<p class="muted">Hata: ${error.message}</p>`; return; }
+
+  el.innerHTML = "";
+  if (!data || data.length === 0){
+    el.innerHTML = `<p class="muted">Henüz konu yok.</p>`;
+    return;
+  }
+
+  data.forEach(t => {
+    const row = document.createElement("div");
+    row.className = "adminLine";
+    row.innerHTML = `
+      <div>
+        <div><b>${t.exam}</b> — ${t.course} — ${t.name}</div>
+        <div class="small">Sıra: ${t.sort_order}</div>
+      </div>
+      <button class="btnDanger">Sil</button>
+    `;
+    row.querySelector("button").addEventListener("click", async () => {
+      if (!confirm("Silinsin mi?")) return;
+      const { error } = await sb.from("topics").delete().eq("id", t.id);
+      if (error) alert("Silinemedi: " + error.message);
+      await loadAdminTopics();
+    });
+    el.appendChild(row);
+  });
+}
+
+// Admin weekly grid editor (uses existing admin.html IDs)
+let ADMIN_SELECTED = null;
+let ADMIN_CACHE = { tasksByCell: new Map(), weekStartISO: null, slots: [] };
+
+async function loadSlotLines(){
+  const ta = $("slotLines");
+  if (!ta) return;
+  const slots = await getTimeSlots();
+  ta.value = slots.join("\n");
+}
+async function saveSlotLines(){
+  const ta = $("slotLines");
+  const raw = (ta.value || "").split("\n").map(s => s.trim()).filter(Boolean);
+
+  const { error } = await sb
+    .from("app_settings")
+    .upsert({ key: "time_slots", value: { slots: raw } }, { onConflict: "key" });
+
+  if (error) alert("Kaydedilemedi: " + error.message);
+  else alert("Kaydedildi.");
+}
+
+async function loadAdminWeekGrid(weekStartISO){
+  const wrap = $("adminGrid");
+  if (!wrap) return;
+
+  const start = new Date(weekStartISO + "T00:00:00");
+  const { monday, sunday } = getWeekRange(start);
+  const startISO = toISODate(monday);
+  const endISO = toISODate(sunday);
+
+  const [slots, tasks] = await Promise.all([getTimeSlots(), fetchWeeklyTasks(startISO, endISO)]);
+
+  const cellMap = new Map();
+  tasks.forEach(t => {
+    if (!t.start_time) return;
+    const time = String(t.start_time).slice(0,5);
+    cellMap.set(`${t.task_date}|${time}`, t);
+  });
+
+  ADMIN_CACHE = { tasksByCell: cellMap, weekStartISO: startISO, slots };
+
+  const dates = buildWeekDates(monday);
+
+  const table = document.createElement("table");
+  table.className = "grid";
+
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  hr.innerHTML = `<th class="timeCell">Saat</th>` + dates.map(d => `<th>${fmtDayTitle(d.obj)}</th>`).join("");
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+
+  slots.forEach(label => {
+    const time = parseStartTime(label);
+    const tr = document.createElement("tr");
+
+    const tdTime = document.createElement("td");
+    tdTime.className = "timeCell";
+    tdTime.textContent = label;
+    tr.appendChild(tdTime);
+
+    dates.forEach(d => {
+      const td = document.createElement("td");
+      const task = cellMap.get(`${d.iso}|${time}`);
+
+      td.innerHTML = task
+        ? `<div class="small"><b>${task.exam}</b> · ${task.task_type}</div><div><b>${task.course}</b></div><div>${task.topic}</div><div class="small">Düzenlemek için tıkla</div>`
+        : `<div class="small">Boş (eklemek için tıkla)</div>`;
+
+      td.style.cursor = "pointer";
+      td.addEventListener("click", () => {
+        ADMIN_SELECTED = { dateISO: d.iso, slotLabel: label, startTime: time };
+        $("cellInfo").textContent = `${d.iso} · ${label}`;
+
+        const existing = cellMap.get(`${d.iso}|${time}`);
+        if (existing){
+          $("cellExam").value = existing.exam;
+          $("cellType").value = existing.task_type;
+          $("cellCourse").value = existing.course;
+          $("cellTopic").value = existing.topic;
+        } else {
+          $("cellExam").value = "TYT";
+          $("cellType").value = "Çalışma";
+          $("cellCourse").value = "";
+          $("cellTopic").value = "";
+        }
+      });
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.innerHTML = "";
+  wrap.appendChild(table);
+}
+
+async function saveSelectedCell(){
+  if (!ADMIN_SELECTED){ alert("Lütfen tabloda bir hücre seç."); return; }
+
+  const task_date = ADMIN_SELECTED.dateISO;
+  const start_time = ADMIN_SELECTED.startTime;
+  const exam = $("cellExam").value;
+  const task_type = $("cellType").value;
+  const course = $("cellCourse").value.trim();
+  const topic = $("cellTopic").value.trim();
+
+  if (!course || !topic){
+    alert("Lütfen ders ve konu/not gir.");
+    return;
+  }
+
+  const { error } = await sb
+    .from("weekly_tasks")
+    .upsert(
+      { task_date, start_time, exam, course, topic, task_type, duration_min: 0, sort_order: 0 },
+      { onConflict: "task_date,start_time" }
+    );
+
+  if (error) { alert("Kaydedilemedi: " + error.message); return; }
+  await loadAdminWeekGrid(ADMIN_CACHE.weekStartISO);
+}
+
+async function clearSelectedCell(){
+  if (!ADMIN_SELECTED){ alert("Lütfen tabloda bir hücre seç."); return; }
+
+  const { error } = await sb
+    .from("weekly_tasks")
+    .delete()
+    .eq("task_date", ADMIN_SELECTED.dateISO)
+    .eq("start_time", ADMIN_SELECTED.startTime);
+
+  if (error) { alert("Silinemedi: " + error.message); return; }
+  await loadAdminWeekGrid(ADMIN_CACHE.weekStartISO);
+}
+
+// ---------- Login page ----------
 function initLoginPage(){
   const btn = $("btnLogin");
   const msg = $("msg");
@@ -450,20 +623,14 @@ function initLoginPage(){
   });
 }
 
-// MAIN
+// ---------- MAIN ----------
 (async function main(){
   const { data: { session } } = await sb.auth.getSession();
 
-  // Navbar button
+  // navbar button (all pages)
   renderNavAuthButton(session);
 
-  // Only admin page forces login
-  if (isAdminPage() && !session){
-    goLogin();
-    return;
-  }
-
-  // Login page
+  // login page
   if (isLoginPage()){
     if (session){
       const next = getNextFromQuery();
@@ -474,21 +641,79 @@ function initLoginPage(){
     return;
   }
 
+  // admin requires login
+  if (isAdminPage() && !session){
+    goLogin();
+    return;
+  }
+
   initCountdown();
 
-  // Public render always works (checkbox behavior depends on session)
+  // Weekly: week navigation + render selected week
+  const monday = getWeekFromURL();
+  initWeeklyWeekControls(monday);
+  await renderWeeklyGrid(session, monday);
+
+  // Topics pages
   await Promise.all([
-    renderDashboard(session),
-    renderWeeklyGrid(session),
     renderTopicsPage(session, "TYT", "tytTopics"),
     renderTopicsPage(session, "AYT", "aytTopics"),
   ]);
 
-  // Admin page: keep your existing admin editor as-is (we’ll touch it later)
+  // Admin wiring (restore editing)
   if (isAdminPage() && session){
     const ok = await requireAdmin(session.user);
     if (!ok) return;
-    // (No further admin JS changes in Step 1)
+
+    $("btnLogout")?.addEventListener("click", async () => {
+      await sb.auth.signOut();
+      location.href = "index.html";
+    });
+
+    // topic add
+    $("btnAddTopic")?.addEventListener("click", async () => {
+      const exam = $("topicExam").value;
+      const course = $("topicCourse").value.trim();
+      const name = $("topicName").value.trim();
+      const sortOrder = parseInt($("topicOrder").value || "0", 10);
+
+      if (!course || !name){ alert("Lütfen ders ve konu adı gir."); return; }
+
+      const { error } = await sb.from("topics").insert({
+        exam, course, name, sort_order: isNaN(sortOrder) ? 0 : sortOrder
+      });
+
+      if (error) { alert("Kaydedilemedi: " + error.message); return; }
+
+      $("topicName").value = "";
+      $("topicOrder").value = "";
+      await loadAdminTopics();
+    });
+
+    await loadAdminTopics();
+
+    // slots editor
+    await loadSlotLines();
+    $("btnSaveSlots")?.addEventListener("click", async () => {
+      await saveSlotLines();
+      const ws = $("weekStart").value;
+      if (ws) await loadAdminWeekGrid(ws);
+    });
+
+    // week default
+    const { monday: mNow } = getWeekRange(new Date());
+    if ($("weekStart") && !$("weekStart").value) $("weekStart").value = toISODate(mNow);
+
+    $("btnLoadWeek")?.addEventListener("click", async () => {
+      const ws = $("weekStart").value;
+      if (!ws) return;
+      await loadAdminWeekGrid(ws);
+    });
+
+    $("btnSaveCell")?.addEventListener("click", saveSelectedCell);
+    $("btnClearCell")?.addEventListener("click", clearSelectedCell);
+
+    await loadAdminWeekGrid($("weekStart").value);
   }
 })();
 
