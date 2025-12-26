@@ -190,3 +190,12 @@ table.grid th{
 }
 .btnDanger{ border-color: rgba(239,68,68,0.55); background: rgba(239,68,68,0.18); }
 .btnDanger:hover{ background: rgba(239,68,68,0.28); }
+
+
+/* weekly cell layout: content uses full width, checkbox sits nicely */
+.slotCard{ display:flex; flex-direction:column; gap:6px; }
+.slotHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.slotHead .course{ font-weight:900; }
+.slotCard.done{ opacity:0.65; text-decoration: line-through; }
+.slotLocked{ opacity:0.6; }
+
