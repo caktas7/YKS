@@ -1,5 +1,6 @@
 
 
+
 function $(id){ return document.getElementById(id); }
 
 function escapeHtml(s){
@@ -9,6 +10,23 @@ function escapeHtml(s){
     .replaceAll(">","&gt;")
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#39;");
+}
+
+function setText(id, txt){
+  const el = $(id);
+  if (el) el.textContent = txt;
+}
+
+function setDonut(el, percent, labelText){
+  if (!el) return;
+  const p = Math.max(0, Math.min(100, Math.round(percent)));
+  const deg = Math.round(p * 3.6);
+
+  // uses CSS var --accent if you have it; otherwise still works
+  el.style.background = `conic-gradient(var(--accent) ${deg}deg, rgba(255,255,255,0.10) ${deg}deg)`;
+
+  const span = el.querySelector("span");
+  if (span) span.textContent = labelText ?? `%${p}`;
 }
 
 // ===================== Supabase =====================
@@ -219,7 +237,6 @@ async function fetchCourseLinks(exam){
   if (error) throw error;
   return data || [];
 }
-
 function groupLinksByCourse(links){
   const m = new Map();
   links.forEach(l => {
@@ -229,7 +246,6 @@ function groupLinksByCourse(links){
   });
   return m;
 }
-
 async function renderCourseLinks(exam, containerId){
   const container = $(containerId);
   if (!container) return;
@@ -301,6 +317,114 @@ async function upsertTaskDone(userId, taskId, done){
   if (error) throw error;
 }
 
+// ===================== Dashboard (HOME PAGE FIX) =====================
+function groupTopicsByCourse(topics){
+  const m = new Map(); // course -> { total, ids:[] }
+  topics.forEach(t => {
+    const c = (t.course || "").trim();
+    if (!m.has(c)) m.set(c, { total: 0, ids: [] });
+    const obj = m.get(c);
+    obj.total += 1;
+    obj.ids.push(t.id);
+  });
+  return m;
+}
+
+async function renderDashboard(session){
+  // Only run if homepage elements exist
+  const hasHome =
+    $("tytCourses") || $("aytCourses") ||
+    $("donutToday") || $("donutWeek") ||
+    $("tytOverall") || $("aytOverall");
+
+  if (!hasHome) return;
+
+  const todayISO = toISODate(new Date());
+  const { monday, sunday } = getWeekRange(new Date());
+  const startISO = toISODate(monday);
+  const endISO = toISODate(sunday);
+
+  // Fetch topics + this week tasks
+  const [tytTopics, aytTopics, weekTasks] = await Promise.all([
+    fetchTopics("TYT"),
+    fetchTopics("AYT"),
+    fetchWeeklyTasks(startISO, endISO),
+  ]);
+
+  const tasksToday = weekTasks.filter(t => t.task_date === todayISO);
+
+  // Completion maps if logged in
+  const [topicDoneMap, taskDoneMap] = session
+    ? await Promise.all([fetchTopicCompletion(), fetchTaskCompletion()])
+    : [new Map(), new Map()];
+
+  // ---- TYT/AYT overall ----
+  const tytTotal = tytTopics.length;
+  const aytTotal = aytTopics.length;
+
+  const tytDone = session ? tytTopics.reduce((a,t)=>a + (topicDoneMap.get(t.id) ? 1 : 0), 0) : 0;
+  const aytDone = session ? aytTopics.reduce((a,t)=>a + (topicDoneMap.get(t.id) ? 1 : 0), 0) : 0;
+
+  const tytPct = tytTotal ? Math.round((tytDone/tytTotal)*100) : 0;
+  const aytPct = aytTotal ? Math.round((aytDone/aytTotal)*100) : 0;
+
+  // If your homepage uses these IDs (most likely)
+  setText("tytOverall", session ? `%${tytPct}` : "—");
+  setText("tytOverallMeta", session ? `${tytDone} / ${tytTotal} konu` : `Toplam: ${tytTotal} konu`);
+
+  setText("aytOverall", session ? `%${aytPct}` : "—");
+  setText("aytOverallMeta", session ? `${aytDone} / ${aytTotal} konu` : `Toplam: ${aytTotal} konu`);
+
+  // ---- Today + Week plan ----
+  const todayTotal = tasksToday.length;
+  const weekTotal = weekTasks.length;
+
+  const todayDone = session ? tasksToday.reduce((a,t)=>a + (taskDoneMap.get(t.id) ? 1 : 0), 0) : 0;
+  const weekDone = session ? weekTasks.reduce((a,t)=>a + (taskDoneMap.get(t.id) ? 1 : 0), 0) : 0;
+
+  const todayPct = todayTotal ? Math.round((todayDone/todayTotal)*100) : 0;
+  const weekPct = weekTotal ? Math.round((weekDone/weekTotal)*100) : 0;
+
+  // Donut circles if they exist
+  setDonut($("donutToday"), todayPct, session ? `%${todayPct}` : "—");
+  setDonut($("donutWeek"), weekPct, session ? `%${weekPct}` : "—");
+
+  // Text under donuts if those IDs exist
+  setText("todayMeta", session ? `${todayDone} / ${todayTotal} görev` : `Toplam: ${todayTotal} görev`);
+  setText("weekMeta", session ? `${weekDone} / ${weekTotal} görev` : `Toplam: ${weekTotal} görev`);
+
+  // Some homepages also show percent text lines (if you have them)
+  setText("todayOverall", session ? `%${todayPct}` : "—");
+  setText("weekOverall", session ? `%${weekPct}` : "—");
+
+  // ---- Per-course lists ----
+  const renderCourseList = (containerId, topics) => {
+    const el = $(containerId);
+    if (!el) return;
+
+    const byCourse = groupTopicsByCourse(topics);
+    const rows = Array.from(byCourse.entries()).sort((a,b)=>a[0].localeCompare(b[0],"tr"));
+
+    el.innerHTML = "";
+
+    rows.forEach(([course, obj]) => {
+      const done = session ? obj.ids.reduce((a,id)=>a + (topicDoneMap.get(id) ? 1 : 0), 0) : 0;
+      const pct = obj.total ? Math.round((done/obj.total)*100) : 0;
+
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = session
+        ? `<b>${escapeHtml(course)}</b><span>%${pct} (${done}/${obj.total})</span>`
+        : `<b>${escapeHtml(course)}</b><span>Toplam: ${obj.total}</span>`;
+
+      el.appendChild(div);
+    });
+  };
+
+  renderCourseList("tytCourses", tytTopics);
+  renderCourseList("aytCourses", aytTopics);
+}
+
 // ===================== Topics render =====================
 function groupByCourse(topics){
   const m = new Map();
@@ -339,7 +463,7 @@ async function renderTopicsPage(session, exam, containerId){
   for (const [courseName, list] of byCourse.entries()){
     const details = document.createElement("details");
     details.className = "course";
-    details.open = false; // collapsed by default
+    details.open = false;
 
     const summary = document.createElement("summary");
     summary.innerHTML = `<b>${escapeHtml(courseName)}</b> <span>%0 (0/0)</span>`;
@@ -513,9 +637,8 @@ async function renderWeeklyGrid(session, monday){
     tbody.appendChild(tr);
   });
 
-  // ----- Notes row -----
+  // Notes row
   const notesTr = document.createElement("tr");
-
   const notesTitle = document.createElement("td");
   notesTitle.className = "timeCell noteRowTitle";
   notesTitle.textContent = "Gün Notu";
@@ -524,11 +647,9 @@ async function renderWeeklyGrid(session, monday){
   dates.forEach(d => {
     const td = document.createElement("td");
     const txt = (notesMap.get(d.iso) || "").trim();
-    if (!txt){
-      td.innerHTML = `<div class="dayNoteBox dayNoteEmpty">—</div>`;
-    } else {
-      td.innerHTML = `<div class="dayNoteBox">${escapeHtml(txt)}</div>`;
-    }
+    td.innerHTML = !txt
+      ? `<div class="dayNoteBox dayNoteEmpty">—</div>`
+      : `<div class="dayNoteBox">${escapeHtml(txt)}</div>`;
     notesTr.appendChild(td);
   });
 
@@ -555,7 +676,7 @@ async function requireAdmin(user){
   return true;
 }
 
-// ----- Admin Topics -----
+// Admin Topics
 async function loadAdminTopics(){
   const el = $("adminTopics");
   if (!el) return;
@@ -596,7 +717,7 @@ async function loadAdminTopics(){
   });
 }
 
-// ----- Admin time slots -----
+// Admin time slots
 async function loadSlotLines(){
   const ta = $("slotLines");
   if (!ta) return;
@@ -615,7 +736,7 @@ async function saveSlotLines(){
   else alert("Kaydedildi.");
 }
 
-// ----- Admin weekly grid editor -----
+// Admin weekly grid editor
 let ADMIN_SELECTED = null;
 let ADMIN_CACHE = { weekStartISO: null, slots: [] };
 
@@ -746,7 +867,7 @@ async function clearSelectedCell(){
   await renderAdminNotes(ADMIN_CACHE.weekStartISO);
 }
 
-// ----- Admin notes editor -----
+// Admin notes editor
 async function renderAdminNotes(weekStartISO){
   const list = $("adminNotes");
   if (!list) return;
@@ -793,7 +914,7 @@ async function saveAdminNotes(){
   alert("Notlar kaydedildi.");
 }
 
-// ----- Admin links -----
+// Admin links
 async function loadAdminLinks(){
   const el = $("adminLinks");
   if (!el) return;
@@ -833,8 +954,6 @@ async function loadAdminLinks(){
       const { error } = await sb.from("course_links").delete().eq("id", l.id);
       if (error) alert("Silinemedi: " + error.message);
       await loadAdminLinks();
-      await renderCourseLinks("TYT", "tytLinks");
-      await renderCourseLinks("AYT", "aytLinks");
     });
     el.appendChild(row);
   });
@@ -895,10 +1014,10 @@ function initLoginPage(){
 (async function main(){
   const { data: { session } } = await sb.auth.getSession();
 
-  // navbar button
+  // navbar
   renderNavAuthButton(session);
 
-  // login page behavior
+  // login page
   if (isLoginPage()){
     if (session){
       const next = getNextFromQuery();
@@ -915,7 +1034,11 @@ function initLoginPage(){
     return;
   }
 
+  // countdown (home)
   initCountdown();
+
+  // HOME dashboard (this fixes 0/0 issue)
+  await renderDashboard(session);
 
   // weekly page
   if (isWeeklyPage()){
@@ -930,7 +1053,7 @@ function initLoginPage(){
     renderTopicsPage(session, "AYT", "aytTopics"),
   ]);
 
-  // course links bottom sections
+  // links sections
   await Promise.all([
     renderCourseLinks("TYT", "tytLinks"),
     renderCourseLinks("AYT", "aytLinks"),
@@ -941,7 +1064,7 @@ function initLoginPage(){
     const ok = await requireAdmin(session.user);
     if (!ok) return;
 
-    // topic add
+    // add topic
     $("btnAddTopic")?.addEventListener("click", async () => {
       const exam = $("topicExam").value;
       const course = $("topicCourse").value.trim();
@@ -966,7 +1089,7 @@ function initLoginPage(){
 
     await loadAdminTopics();
 
-    // time slots editor
+    // time slots
     await loadSlotLines();
     $("btnSaveSlots")?.addEventListener("click", async () => {
       await saveSlotLines();
@@ -977,7 +1100,7 @@ function initLoginPage(){
       }
     });
 
-    // week picker default to current monday
+    // default weekStart
     const { monday: mNow } = getWeekRange(new Date());
     if ($("weekStart") && !$("weekStart").value) $("weekStart").value = toISODate(mNow);
 
