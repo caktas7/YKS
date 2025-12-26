@@ -199,3 +199,21 @@ table.grid th{
 .slotCard.done{ opacity:0.65; text-decoration: line-through; }
 .slotLocked{ opacity:0.6; }
 
+
+
+
+.dayNoteBox{
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px 12px;
+  background: rgba(255,255,255,0.03);
+  min-height: 70px;
+  white-space: pre-wrap;
+}
+.dayNoteEmpty{
+  color: var(--muted);
+}
+.noteRowTitle{
+  font-weight: 900;
+}
+
