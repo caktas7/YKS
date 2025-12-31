@@ -1,4 +1,6 @@
 
+// assets/app.js
+
 function $(id){ return document.getElementById(id); }
 
 function escapeHtml(s){
@@ -25,10 +27,8 @@ function setDonut(el, percent, labelText){
 }
 
 // ===================== Supabase =====================
-
 const SUPABASE_URL = "https://bexcwoukvbwtrllspdmy.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleGN3b3VrdmJ3dHJsbHNwZG15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2ODAwNjIsImV4cCI6MjA4MjI1NjA2Mn0.yxCSboNQ2Y4tbe8RO4pt3HjM1-reC9TToOVzZ66LIms"; // <-- paste anon key here
-
 
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -39,6 +39,7 @@ let CURRENT_ROLE = null;
 
 // Admin modal state
 let ADMIN_MODAL_STATE = null; // { weekStartISO, dateISO, startTime }
+let ADMIN_CACHE = { weekStartISO: null, slots: [] };
 
 // ===================== Page helpers =====================
 function isLoginPage(){ return location.pathname.endsWith("giris.html"); }
@@ -277,6 +278,7 @@ async function fetchCourseLinks(exam){
   if (error) throw error;
   return data || [];
 }
+
 function groupLinksByCourse(links){
   const m = new Map();
   links.forEach(l => {
@@ -286,6 +288,7 @@ function groupLinksByCourse(links){
   });
   return m;
 }
+
 async function renderCourseLinks(exam, containerId){
   const container = $(containerId);
   if (!container) return;
@@ -669,7 +672,7 @@ async function renderWeeklyGrid(session, monday){
     tbody.appendChild(tr);
   });
 
-  // Notes row
+  // Notes row (view-only on weekly page)
   const notesTr = document.createElement("tr");
   const notesTitle = document.createElement("td");
   notesTitle.className = "timeCell noteRowTitle";
@@ -718,7 +721,6 @@ async function loadCourseSuggestionsIntoDatalist(){
   const dl = $("courseList");
   if (!dl) return;
 
-  // fetch just the course field (client-side distinct)
   const { data, error } = await sb
     .from("topics")
     .select("course")
@@ -737,7 +739,7 @@ async function loadCourseSuggestionsIntoDatalist(){
   });
 }
 
-// ===================== Admin: modal open/close =====================
+// ===================== Admin modal open/close =====================
 function openCellModal(title, existingTask, state){
   ADMIN_MODAL_STATE = state;
 
@@ -762,7 +764,7 @@ function closeCellModal(){
   ADMIN_MODAL_STATE = null;
 }
 
-// ===================== Admin: copy week (tasks+notes, reset done) =====================
+// ===================== Admin: copy week (tasks only, reset done) =====================
 async function copyWeekPlan(fromMondayISO, toMondayISO){
   const status = $("copyStatus");
   if (status) status.textContent = "Kopyalanıyor...";
@@ -804,8 +806,7 @@ async function copyWeekPlan(fromMondayISO, toMondayISO){
     if (error) throw error;
   }
 
-
-  // 3) reset done for target week (delete task_completion rows for target tasks)
+  // 2) reset done for target week (delete task_completion rows for target tasks)
   const targetTasks = await fetchWeeklyTasks(toStart, toEnd);
   const ids = targetTasks.map(x => x.id);
 
@@ -822,9 +823,7 @@ async function copyWeekPlan(fromMondayISO, toMondayISO){
   if (status) status.textContent = `Kopyalandı ✅ (${fromStart} → ${toStart})`;
 }
 
-// ===================== Admin: weekly grid with modal =====================
-let ADMIN_CACHE = { weekStartISO: null, slots: [] };
-
+// ===================== Admin: weekly grid =====================
 async function loadAdminWeekGrid(weekStartISO){
   const wrap = $("adminGrid");
   if (!wrap) return;
@@ -927,8 +926,9 @@ async function modalSave(){
 
   if (error) { alert("Kaydedilemedi: " + error.message); return; }
 
+  const ws = ADMIN_MODAL_STATE?.weekStartISO || ADMIN_CACHE.weekStartISO;
   closeCellModal();
-  await loadAdminWeekGrid(ADMIN_MODAL_STATE?.weekStartISO || ADMIN_CACHE.weekStartISO);
+  await loadAdminWeekGrid(ws);
 }
 
 async function modalClear(){
@@ -945,11 +945,12 @@ async function modalClear(){
 
   if (error) { alert("Silinemedi: " + error.message); return; }
 
+  const ws = ADMIN_MODAL_STATE?.weekStartISO || ADMIN_CACHE.weekStartISO;
   closeCellModal();
-  await loadAdminWeekGrid(ADMIN_MODAL_STATE?.weekStartISO || ADMIN_CACHE.weekStartISO);
+  await loadAdminWeekGrid(ws);
 }
 
-// ===================== Admin notes editor (same as before) =====================
+// ===================== Admin notes editor (weekly-like table) =====================
 async function renderAdminNotes(weekStartISO){
   const host = $("adminNotes");
   if (!host) return;
@@ -995,7 +996,6 @@ async function renderAdminNotes(weekStartISO){
   host.appendChild(table);
 }
 
-
 async function saveAdminNotes(){
   const list = $("adminNotes");
   if (!list) return;
@@ -1015,9 +1015,34 @@ async function saveAdminNotes(){
   alert("Notlar kaydedildi.");
 }
 
-// ===================== Admin topics + slots + links (leave as-is if you already have) =====================
-// If your current admin.html already has these sections, keep them;
-// this JS assumes they exist with the same IDs you used before.
+// ===================== Admin topics =====================
+async function addAdminTopic(){
+  const exam = ($("topicExam")?.value || "TYT").trim();
+  const course = ($("topicCourse")?.value || "").trim();
+  const name = ($("topicName")?.value || "").trim();
+  const sort_order = parseInt($("topicOrder")?.value || "0", 10) || 0;
+
+  if (!course || !name){
+    alert("Lütfen ders ve konu gir.");
+    return;
+  }
+
+  const { error } = await sb
+    .from("topics")
+    .insert([{ exam, course, name, sort_order }]);
+
+  if (error){
+    alert("Eklenemedi: " + error.message);
+    return;
+  }
+
+  $("topicName").value = "";
+  $("topicOrder").value = "";
+
+  await loadAdminTopics();
+  try { await loadCourseSuggestionsIntoDatalist(); } catch(_) {}
+}
+
 async function loadAdminTopics(){
   const el = $("adminTopics");
   if (!el) return;
@@ -1053,7 +1078,6 @@ async function loadAdminTopics(){
 
   el.innerHTML = "";
 
-  // Render exams in order TYT then AYT
   const examOrder = ["TYT", "AYT"];
   const exams = Array.from(byExam.keys()).sort((a,b) => {
     const ia = examOrder.indexOf(a);
@@ -1110,7 +1134,6 @@ async function loadAdminTopics(){
           const { error } = await sb.from("topics").delete().eq("id", t.id);
           if (error) alert("Silinemedi: " + error.message);
           await loadAdminTopics();
-          // also refresh course suggestions for modal
           try { await loadCourseSuggestionsIntoDatalist(); } catch(_) {}
         });
 
@@ -1126,10 +1149,7 @@ async function loadAdminTopics(){
   }
 }
 
-
-
-
-
+// ===================== Admin slots =====================
 async function loadSlotLines(){
   const ta = $("slotLines");
   if (!ta) return;
@@ -1146,6 +1166,146 @@ async function saveSlotLines(){
 
   if (error) alert("Kaydedilemedi: " + error.message);
   else alert("Kaydedildi.");
+}
+
+// ===================== Admin course links =====================
+async function addAdminLink(){
+  const exam = ($("linkExam")?.value || "TYT").trim();
+  const course = ($("linkCourse")?.value || "").trim();
+  const title = ($("linkTitle")?.value || "").trim();
+  const url = ($("linkUrl")?.value || "").trim();
+  const sort_order = parseInt($("linkOrder")?.value || "0", 10) || 0;
+
+  if (!course || !title || !url){
+    alert("Lütfen ders, başlık ve URL gir.");
+    return;
+  }
+  if (!/^https?:\/\//i.test(url)){
+    alert("URL 'https://' ile başlamalı.");
+    return;
+  }
+
+  const { error } = await sb
+    .from("course_links")
+    .insert([{ exam, course, title, url, sort_order }]);
+
+  if (error){
+    alert("Eklenemedi: " + error.message);
+    return;
+  }
+
+  $("linkTitle").value = "";
+  $("linkUrl").value = "";
+  $("linkOrder").value = "";
+
+  await loadAdminLinks();
+}
+
+async function loadAdminLinks(){
+  const box = $("adminLinks");
+  if (!box) return;
+
+  box.innerHTML = `<p class="muted">Yükleniyor...</p>`;
+
+  const { data, error } = await sb
+    .from("course_links")
+    .select("id, exam, course, title, url, sort_order")
+    .order("exam", { ascending: true })
+    .order("course", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("title", { ascending: true });
+
+  if (error){
+    box.innerHTML = `<p class="muted">Hata: ${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
+  if (!data || data.length === 0){
+    box.innerHTML = `<p class="muted">Henüz link eklenmedi.</p>`;
+    return;
+  }
+
+  // Group: exam -> course -> list
+  const byExam = new Map();
+  for (const l of data){
+    const ex = (l.exam || "").trim();
+    const c = (l.course || "").trim();
+    if (!byExam.has(ex)) byExam.set(ex, new Map());
+    const byCourse = byExam.get(ex);
+    if (!byCourse.has(c)) byCourse.set(c, []);
+    byCourse.get(c).push(l);
+  }
+
+  box.innerHTML = "";
+
+  const examOrder = ["TYT", "AYT"];
+  const exams = Array.from(byExam.keys()).sort((a,b)=>{
+    const ia = examOrder.indexOf(a);
+    const ib = examOrder.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b,"tr");
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+
+  for (const exam of exams){
+    const examDetails = document.createElement("details");
+    examDetails.className = "course";
+    examDetails.open = false;
+
+    const examSummary = document.createElement("summary");
+    examSummary.innerHTML = `<b>${escapeHtml(exam)}</b> <span>${byExam.get(exam).size} ders</span>`;
+    examDetails.appendChild(examSummary);
+
+    const examBody = document.createElement("div");
+    examBody.className = "topics";
+
+    const courses = Array.from(byExam.get(exam).keys()).sort((a,b)=>a.localeCompare(b,"tr"));
+    for (const course of courses){
+      const list = byExam.get(exam).get(course);
+
+      const courseDetails = document.createElement("details");
+      courseDetails.className = "course";
+      courseDetails.open = false;
+
+      const courseSummary = document.createElement("summary");
+      courseSummary.innerHTML = `<b>${escapeHtml(course)}</b> <span>${list.length} link</span>`;
+      courseDetails.appendChild(courseSummary);
+
+      const courseBody = document.createElement("div");
+      courseBody.className = "topics";
+
+      list.forEach(l => {
+        const row = document.createElement("div");
+        row.className = "item";
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;">
+            <div style="flex:1;">
+              <b>${escapeHtml(l.title)}</b>
+              <div class="small">${escapeHtml(l.url)}</div>
+              <div class="small">Sıra: ${escapeHtml(l.sort_order ?? 0)}</div>
+            </div>
+            <button class="btnDanger">Sil</button>
+          </div>
+        `;
+
+        row.querySelector("button").addEventListener("click", async () => {
+          if (!confirm("Bu link silinsin mi?")) return;
+          const { error } = await sb.from("course_links").delete().eq("id", l.id);
+          if (error) alert("Silinemedi: " + error.message);
+          await loadAdminLinks();
+        });
+
+        courseBody.appendChild(row);
+      });
+
+      courseDetails.appendChild(courseBody);
+      examBody.appendChild(courseDetails);
+    }
+
+    examDetails.appendChild(examBody);
+    box.appendChild(examDetails);
+  }
 }
 
 // ===================== Login page =====================
@@ -1216,7 +1376,6 @@ function initLoginPage(){
     const ok = await requireAdmin(session);
     if (!ok) return;
 
-    // fill datalist once
     await loadCourseSuggestionsIntoDatalist();
 
     // modal buttons
@@ -1230,8 +1389,6 @@ function initLoginPage(){
     // copy buttons setup
     const { monday: mNow } = getWeekRange(new Date());
     const weekStartEl = $("weekStart");
-
-    // if you have weekStart input, use it; otherwise default today monday
     const currentWeekStartISO = weekStartEl?.value || toISODate(mNow);
 
     if ($("copyFromWeek")) $("copyFromWeek").value = currentWeekStartISO;
@@ -1245,7 +1402,6 @@ function initLoginPage(){
 
       try{
         await copyWeekPlan(fromISO, toISO);
-        // refresh admin view if you are currently looking at the target week
         if (weekStartEl && weekStartEl.value === toISO){
           await loadAdminWeekGrid(toISO);
           await renderAdminNotes(toISO);
@@ -1290,10 +1446,19 @@ function initLoginPage(){
       await renderAdminNotes(weekStartEl.value);
     }
 
-    // keep existing admin tools if present
+    // Notes
     $("btnSaveNotes")?.addEventListener("click", saveAdminNotes);
+
+    // Topics
+    $("btnAddTopic")?.addEventListener("click", addAdminTopic);
     await loadAdminTopics();
+
+    // Slots
     await loadSlotLines();
     $("btnSaveSlots")?.addEventListener("click", saveSlotLines);
+
+    // Links
+    $("btnAddLink")?.addEventListener("click", addAdminLink);
+    await loadAdminLinks();
   }
 })();
