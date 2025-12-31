@@ -255,14 +255,14 @@ table.grid th{
 }
 
 
-/* Admin link: keep space to prevent navbar shifting */
+/* hidden by default */
 #navAdminLink{
   opacity: 0;
   pointer-events: none;
-  transition: opacity .15s ease;
 }
 
-#navAdminLink.is-admin{
+/* shown from FIRST paint if admin hint exists */
+html.preAdmin #navAdminLink{
   opacity: 1;
   pointer-events: auto;
 }
