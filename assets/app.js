@@ -781,10 +781,7 @@ async function copyWeekPlan(fromMondayISO, toMondayISO){
 
   const delta = dayDiffISO(fromStart, toStart);
 
-  const [fromTasks, fromNotes] = await Promise.all([
-    fetchWeeklyTasks(fromStart, fromEnd),
-    fetchDayNotes(fromStart, fromEnd),
-  ]);
+  const fromTasks = await fetchWeeklyTasks(fromStart, fromEnd);
 
   // 1) copy tasks
   for (const t of fromTasks){
@@ -807,15 +804,6 @@ async function copyWeekPlan(fromMondayISO, toMondayISO){
     if (error) throw error;
   }
 
-  // 2) copy notes
-  for (const [noteDate, noteText] of fromNotes.entries()){
-    const newDate = toISODate(addDays(parseISODate(noteDate), delta));
-    if ((noteText || "").trim()){
-      await upsertDayNote(newDate, noteText);
-    } else {
-      // keep empty as empty (no-op)
-    }
-  }
 
   // 3) reset done for target week (delete task_completion rows for target tasks)
   const targetTasks = await fetchWeeklyTasks(toStart, toEnd);
