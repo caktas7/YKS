@@ -1030,7 +1030,6 @@ async function saveAdminNotes(){
 // ===================== Admin topics + slots + links (leave as-is if you already have) =====================
 // If your current admin.html already has these sections, keep them;
 // this JS assumes they exist with the same IDs you used before.
-
 async function loadAdminTopics(){
   const el = $("adminTopics");
   if (!el) return;
@@ -1043,33 +1042,105 @@ async function loadAdminTopics(){
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
-  if (error){ el.innerHTML = `<p class="muted">Hata: ${escapeHtml(error.message)}</p>`; return; }
+  if (error){
+    el.innerHTML = `<p class="muted">Hata: ${escapeHtml(error.message)}</p>`;
+    return;
+  }
 
-  el.innerHTML = "";
   if (!data || data.length === 0){
     el.innerHTML = `<p class="muted">Henüz konu yok.</p>`;
     return;
   }
 
-  data.forEach(t => {
-    const row = document.createElement("div");
-    row.className = "adminLine";
-    row.innerHTML = `
-      <div>
-        <div><b>${escapeHtml(t.exam)}</b> — ${escapeHtml(t.course)} — ${escapeHtml(t.name)}</div>
-        <div class="small">Sıra: ${escapeHtml(t.sort_order)}</div>
-      </div>
-      <button class="btnDanger">Sil</button>
-    `;
-    row.querySelector("button").addEventListener("click", async () => {
-      if (!confirm("Silinsin mi?")) return;
-      const { error } = await sb.from("topics").delete().eq("id", t.id);
-      if (error) alert("Silinemedi: " + error.message);
-      await loadAdminTopics();
-    });
-    el.appendChild(row);
+  // Group: exam -> course -> list
+  const byExam = new Map();
+  for (const t of data){
+    const ex = (t.exam || "").trim();
+    const course = (t.course || "").trim();
+    if (!byExam.has(ex)) byExam.set(ex, new Map());
+    const byCourse = byExam.get(ex);
+    if (!byCourse.has(course)) byCourse.set(course, []);
+    byCourse.get(course).push(t);
+  }
+
+  el.innerHTML = "";
+
+  // Render exams in order TYT then AYT
+  const examOrder = ["TYT", "AYT"];
+  const exams = Array.from(byExam.keys()).sort((a,b) => {
+    const ia = examOrder.indexOf(a);
+    const ib = examOrder.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b,"tr");
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
   });
+
+  for (const exam of exams){
+    const examDetails = document.createElement("details");
+    examDetails.className = "course";
+    examDetails.open = false;
+
+    const examSummary = document.createElement("summary");
+    const courseCount = byExam.get(exam).size;
+    examSummary.innerHTML = `<b>${escapeHtml(exam)}</b> <span>${courseCount} ders</span>`;
+    examDetails.appendChild(examSummary);
+
+    const examBody = document.createElement("div");
+    examBody.className = "topics";
+
+    const courses = Array.from(byExam.get(exam).keys()).sort((a,b)=>a.localeCompare(b,"tr"));
+    for (const course of courses){
+      const list = byExam.get(exam).get(course);
+
+      const courseDetails = document.createElement("details");
+      courseDetails.className = "course";
+      courseDetails.open = false;
+
+      const courseSummary = document.createElement("summary");
+      courseSummary.innerHTML = `<b>${escapeHtml(course)}</b> <span>${list.length} konu</span>`;
+      courseDetails.appendChild(courseSummary);
+
+      const courseBody = document.createElement("div");
+      courseBody.className = "topics";
+
+      list.forEach(t => {
+        const row = document.createElement("div");
+        row.className = "item";
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;">
+            <div style="flex:1;">
+              <b>${escapeHtml(t.name)}</b>
+              <div class="small">Sıra: ${escapeHtml(t.sort_order ?? 0)}</div>
+            </div>
+            <button class="btnDanger">Sil</button>
+          </div>
+        `;
+
+        row.querySelector("button").addEventListener("click", async () => {
+          if (!confirm("Silinsin mi?")) return;
+          const { error } = await sb.from("topics").delete().eq("id", t.id);
+          if (error) alert("Silinemedi: " + error.message);
+          await loadAdminTopics();
+          // also refresh course suggestions for modal
+          try { await loadCourseSuggestionsIntoDatalist(); } catch(_) {}
+        });
+
+        courseBody.appendChild(row);
+      });
+
+      courseDetails.appendChild(courseBody);
+      examBody.appendChild(courseDetails);
+    }
+
+    examDetails.appendChild(examBody);
+    el.appendChild(examDetails);
+  }
 }
+
+
+
+
 
 async function loadSlotLines(){
   const ta = $("slotLines");
