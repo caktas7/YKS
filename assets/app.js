@@ -67,6 +67,12 @@ async function loadCurrentProfile(session){
 
   CURRENT_GROUP_ID = data.group_id;
   CURRENT_ROLE = data.role;
+
+  try{
+  if (CURRENT_ROLE === "admin") localStorage.setItem("yks_is_admin", "1");
+  else localStorage.removeItem("yks_is_admin");
+}catch(e){}
+
   return data;
 }
 
