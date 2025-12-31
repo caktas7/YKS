@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Yönetici Paneli</title>
+  <title>Admin • YKS Planlayıcı</title>
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
@@ -13,124 +13,164 @@
     <a href="weekly.html">Haftalık Plan</a>
     <a href="tyt.html">TYT Konular</a>
     <a href="ayt.html">AYT Konular</a>
-    <a href="admin.html" class="active">Yönetici</a>
+    <!-- Admin link is injected by JS only if role=admin -->
   </nav>
 
   <main class="container">
     <section class="card">
-      <h1>Yönetici Paneli</h1>
-      <p class="muted">Sadece yönetici düzenleme yapabilir.</p>
-      <div class="row">
-        <button id="btnLogout">Çıkış Yap</button>
-      </div>
-      <p id="adminMsg" class="muted"></p>
+      <h1>Admin Paneli</h1>
+      <p class="muted">
+        Haftalık planı düzenle, gün notlarını yaz, konu ve linkleri yönet.
+      </p>
     </section>
 
+    <!-- WEEK CONTROL + COPY -->
     <section class="card">
-      <h2>Saat Aralıkları</h2>
-      <p class="muted">Her satıra bir saat aralığı yaz. Örn: 08:00-09:00</p>
-      <div class="row">
-        <textarea id="slotLines" placeholder="08:00-09:00&#10;09:00-10:00"></textarea>
-      </div>
-      <div class="row">
-        <button id="btnSaveSlots">Kaydet</button>
-      </div>
-    </section>
+      <h2>Hafta Yönetimi</h2>
 
-    <section class="card">
-      <h2>Haftalık Plan (Tablo)</h2>
       <div class="row">
-        <input id="weekStart" type="date" />
+        <div style="flex:1;">
+          <label class="muted">Hafta Başlangıcı (Pazartesi)</label>
+          <input type="date" id="weekStart" />
+        </div>
         <button id="btnLoadWeek">Haftayı Yükle</button>
       </div>
 
-      <div id="adminGrid" class="gridWrap" style="margin-top:10px;"></div>
-      <h3 style="margin-top:14px;">Gün Notları</h3>
-      <p class="muted">Her gün için kısa not. Sadece yönetici düzenleyebilir.</p>
-      <div id="adminNotes" class="list"></div>
-      <div class="row">
-      <button id="btnSaveNotes">Notları Kaydet</button>
-      </div>
-
-      <hr style="border:0;border-top:1px solid var(--border); margin:14px 0;" />
-
-      <h3>Seçili Hücre</h3>
-      <p class="muted" id="cellInfo">Henüz seçim yok.</p>
+      <hr style="opacity:.15; margin:14px 0;" />
 
       <div class="row">
-        <select id="cellExam">
-          <option value="TYT">TYT</option>
-          <option value="AYT">AYT</option>
-        </select>
-        <select id="cellType">
-          <option value="Çalışma">Çalışma</option>
-          <option value="Soru">Soru</option>
-          <option value="Tekrar">Tekrar</option>
-        </select>
+        <button id="btnCopyToNextWeek">Bu Haftayı Sonraki Haftaya Kopyala</button>
       </div>
 
       <div class="row">
-        <input id="cellCourse" placeholder="Ders (örn: TYT Matematik)" />
-        <input id="cellTopic" placeholder="Konu / Not" />
+        <div style="flex:1;">
+          <label class="muted">Kaynak Hafta (Pazartesi)</label>
+          <input type="date" id="copyFromWeek">
+        </div>
+
+        <div style="flex:1;">
+          <label class="muted">Hedef Hafta (Pazartesi)</label>
+          <input type="date" id="copyToWeek">
+        </div>
+
+        <button id="btnCopyWeek">Kopyala</button>
       </div>
 
-      <div class="row">
-        <button id="btnSaveCell">Kaydet</button>
-        <button id="btnClearCell" class="btnDanger">Temizle</button>
-      </div>
-
-      <p class="muted">Not: Hücreye tıklayıp düzenleyebilirsin.</p>
+      <p class="muted" id="copyStatus"></p>
     </section>
 
+    <!-- WEEK GRID -->
+    <section class="card">
+      <h2>Haftalık Plan Tablosu</h2>
+      <p class="muted">
+        Hücreye tıkla → açılan pencereden ders/konu gir → Kaydet.
+      </p>
+      <div id="adminGrid"></div>
+    </section>
+
+    <!-- DAY NOTES -->
+    <section class="card">
+      <h2>Gün Notları</h2>
+      <p class="muted">Her gün için küçük notlar ekleyebilirsin.</p>
+      <div id="adminNotes"></div>
+      <div class="row">
+        <button id="btnSaveNotes">Notları Kaydet</button>
+      </div>
+    </section>
+
+    <!-- TOPICS -->
     <section class="card">
       <h2>Konu Yönetimi</h2>
+
       <div class="row">
         <select id="topicExam">
           <option value="TYT">TYT</option>
           <option value="AYT">AYT</option>
         </select>
-        <input id="topicCourse" placeholder="Ders (örn: TYT Matematik)" />
+
+        <input id="topicCourse" placeholder="Ders (örn: Matematik)" />
+        <input id="topicName" placeholder="Konu (örn: Problemler)" />
+
+        <input id="topicOrder" type="number" placeholder="Sıra" style="max-width:110px;" />
+        <button id="btnAddTopic">Ekle</button>
+      </div>
+
+      <div id="adminTopics"></div>
+    </section>
+
+    <!-- TIME SLOTS -->
+    <section class="card">
+      <h2>Saat Aralıkları</h2>
+      <p class="muted">Her satır bir saat aralığı olmalı (örn: 08:00-09:00).</p>
+
+      <textarea id="slotLines" rows="10" style="width:100%;"></textarea>
+
+      <div class="row">
+        <button id="btnSaveSlots">Saatleri Kaydet</button>
+      </div>
+    </section>
+
+    <!-- COURSE LINKS -->
+    <section class="card">
+      <h2>Ders Linkleri</h2>
+
+      <div class="row">
+        <select id="linkExam">
+          <option value="TYT">TYT</option>
+          <option value="AYT">AYT</option>
+        </select>
+
+        <input id="linkCourse" placeholder="Ders (örn: Matematik)" />
+        <input id="linkTitle" placeholder="Link Başlığı (örn: Kamp Video 1)" />
+        <input id="linkUrl" placeholder="https://..." />
+
+        <input id="linkOrder" type="number" placeholder="Sıra" style="max-width:110px;" />
+        <button id="btnAddLink">Link Ekle</button>
+      </div>
+
+      <div id="adminLinks"></div>
+    </section>
+  </main>
+
+  <!-- Popup editor for weekly cells -->
+  <div id="cellModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHeader">
+        <b id="modalTitle">Hücre Düzenle</b>
+        <button id="btnCloseModal">Kapat</button>
       </div>
 
       <div class="row">
-        <input id="topicName" placeholder="Konu adı (örn: Problemler)" />
-        <input id="topicOrder" type="number" placeholder="Sıra (opsiyonel)" />
-        <button id="btnAddTopic">Kaydet</button>
+        <select id="modalExam">
+          <option value="TYT">TYT</option>
+          <option value="AYT">AYT</option>
+        </select>
+
+        <select id="modalType">
+          <option value="Çalışma">Çalışma</option>
+          <option value="Soru">Soru</option>
+          <option value="Tekrar">Tekrar</option>
+          <option value="Deneme">Deneme</option>
+        </select>
       </div>
 
-      <h3>Mevcut Konular</h3>
-      <div id="adminTopics" class="list"></div>
-    </section>
+      <div class="row">
+        <input id="modalCourse" list="courseList" placeholder="Ders (örn: Matematik)" />
+        <datalist id="courseList"></datalist>
+      </div>
 
-<section class="card">
-  <h2>Ders Linkleri Yönetimi</h2>
-  <p class="muted">Bu linkler TYT/AYT sayfalarının altında görünür.</p>
+      <div class="row">
+        <textarea id="modalTopic" placeholder="Konu / Not" rows="3"></textarea>
+      </div>
 
-  <div class="row">
-    <select id="linkExam">
-      <option value="TYT">TYT</option>
-      <option value="AYT">AYT</option>
-    </select>
-    <input id="linkCourse" placeholder="Ders (örn: Matematik)" />
+      <div class="row">
+        <button id="btnModalSave">Kaydet</button>
+        <button id="btnModalClear" class="btnDanger">Sil</button>
+      </div>
+    </div>
   </div>
 
-  <div class="row">
-    <input id="linkTitle" placeholder="Link Başlığı (örn: Hocalara Geldik - TYT Matematik)" />
-    <input id="linkUrl" placeholder="URL (https://...)" />
-  </div>
-
-  <div class="row">
-    <input id="linkOrder" type="number" placeholder="Sıra (opsiyonel)" />
-    <button id="btnAddLink">Ekle</button>
-  </div>
-
-  <h3>Mevcut Linkler</h3>
-  <div id="adminLinks" class="list"></div>
-</section>
-
-    
-  </main>
-
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/app.js"></script>
 </body>
