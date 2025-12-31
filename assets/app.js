@@ -25,8 +25,10 @@ function setDonut(el, percent, labelText){
 }
 
 // ===================== Supabase =====================
+
 const SUPABASE_URL = "https://bexcwoukvbwtrllspdmy.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJleGN3b3VrdmJ3dHJsbHNwZG15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2ODAwNjIsImV4cCI6MjA4MjI1NjA2Mn0.yxCSboNQ2Y4tbe8RO4pt3HjM1-reC9TToOVzZ66LIms"; // <-- paste anon key here
+
 
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -67,7 +69,6 @@ async function loadCurrentProfile(session){
 
   CURRENT_GROUP_ID = data.group_id;
   CURRENT_ROLE = data.role;
-
   return data;
 }
 
@@ -76,9 +77,19 @@ function renderNavbar(session){
   const nav = document.querySelector(".nav");
   if (!nav) return;
 
-  // auth button (same as before)
   const oldAuth = document.getElementById("navAuthBtn");
   if (oldAuth) oldAuth.remove();
+
+  const oldAdmin = document.getElementById("navAdminLink");
+  if (oldAdmin) oldAdmin.remove();
+
+  if (session && CURRENT_ROLE === "admin"){
+    const a = document.createElement("a");
+    a.id = "navAdminLink";
+    a.href = "admin.html";
+    a.textContent = "Admin";
+    nav.appendChild(a);
+  }
 
   const btn = document.createElement("button");
   btn.id = "navAuthBtn";
@@ -96,18 +107,7 @@ function renderNavbar(session){
   }
 
   nav.appendChild(btn);
-
-  // ✅ Admin link: do NOT create/remove, only toggle visibility
-  const adminLink = document.getElementById("navAdminLink");
-  if (adminLink){
-    if (session && CURRENT_ROLE === "admin"){
-      adminLink.classList.add("is-admin");
-    } else {
-      adminLink.classList.remove("is-admin");
-    }
-  }
 }
-
 
 // ===================== Date helpers =====================
 function toISODate(d){
