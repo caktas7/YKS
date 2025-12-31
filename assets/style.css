@@ -255,3 +255,13 @@ table.grid th{
 }
 
 
+
+.noteTA{
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+
+
