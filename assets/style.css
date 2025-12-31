@@ -255,17 +255,3 @@ table.grid th{
 }
 
 
-/* hidden by default */
-#navAdminLink{
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* shown from FIRST paint if admin hint exists */
-html.preAdmin #navAdminLink{
-  opacity: 1;
-  pointer-events: auto;
-}
-
-
-
