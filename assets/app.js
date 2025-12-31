@@ -75,19 +75,9 @@ function renderNavbar(session){
   const nav = document.querySelector(".nav");
   if (!nav) return;
 
+  // auth button (same as before)
   const oldAuth = document.getElementById("navAuthBtn");
   if (oldAuth) oldAuth.remove();
-
-  const oldAdmin = document.getElementById("navAdminLink");
-  if (oldAdmin) oldAdmin.remove();
-
-  if (session && CURRENT_ROLE === "admin"){
-    const a = document.createElement("a");
-    a.id = "navAdminLink";
-    a.href = "admin.html";
-    a.textContent = "Admin";
-    nav.appendChild(a);
-  }
 
   const btn = document.createElement("button");
   btn.id = "navAuthBtn";
@@ -105,7 +95,18 @@ function renderNavbar(session){
   }
 
   nav.appendChild(btn);
+
+  // ✅ Admin link: do NOT create/remove, only toggle visibility
+  const adminLink = document.getElementById("navAdminLink");
+  if (adminLink){
+    if (session && CURRENT_ROLE === "admin"){
+      adminLink.classList.add("is-admin");
+    } else {
+      adminLink.classList.remove("is-admin");
+    }
+  }
 }
+
 
 // ===================== Date helpers =====================
 function toISODate(d){
