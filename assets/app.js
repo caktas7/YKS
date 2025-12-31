@@ -963,8 +963,8 @@ async function modalClear(){
 
 // ===================== Admin notes editor (same as before) =====================
 async function renderAdminNotes(weekStartISO){
-  const list = $("adminNotes");
-  if (!list) return;
+  const host = $("adminNotes");
+  if (!host) return;
 
   const start = new Date(weekStartISO + "T00:00:00");
   const { monday, sunday } = getWeekRange(start);
@@ -974,19 +974,39 @@ async function renderAdminNotes(weekStartISO){
   const dates = buildWeekDates(monday);
   const notesMap = await fetchDayNotes(startISO, endISO);
 
-  list.innerHTML = "";
+  const table = document.createElement("table");
+  table.className = "grid";
+
+  const thead = document.createElement("thead");
+  const trh = document.createElement("tr");
+  trh.innerHTML =
+    `<th class="timeCell">Gün Notu</th>` +
+    dates.map(d => `<th>${escapeHtml(fmtDayTitle(d.obj))}</th>`).join("");
+  thead.appendChild(trh);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  const tr = document.createElement("tr");
+
+  const tdLabel = document.createElement("td");
+  tdLabel.className = "timeCell noteRowTitle";
+  tdLabel.textContent = "Not";
+  tr.appendChild(tdLabel);
+
   dates.forEach(d => {
-    const wrap = document.createElement("div");
-    wrap.className = "adminLine";
-    wrap.innerHTML = `
-      <div style="flex:1;">
-        <div><b>${escapeHtml(fmtDayTitle(d.obj))}</b> <span class="small">(${escapeHtml(d.iso)})</span></div>
-        <textarea data-date="${escapeHtml(d.iso)}" placeholder="Not...">${escapeHtml(notesMap.get(d.iso) || "")}</textarea>
-      </div>
-    `;
-    list.appendChild(wrap);
+    const td = document.createElement("td");
+    const val = (notesMap.get(d.iso) || "");
+    td.innerHTML = `<textarea class="noteTA" data-date="${escapeHtml(d.iso)}" placeholder="Not...">${escapeHtml(val)}</textarea>`;
+    tr.appendChild(td);
   });
+
+  tbody.appendChild(tr);
+  table.appendChild(tbody);
+
+  host.innerHTML = "";
+  host.appendChild(table);
 }
+
 
 async function saveAdminNotes(){
   const list = $("adminNotes");
