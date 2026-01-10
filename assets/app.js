@@ -793,7 +793,7 @@ async function copyWeekPlan(fromMondayISO, toMondayISO){
       start_time: String(t.start_time).slice(0,5),
       exam: t.exam,
       course: t.course,
-      topic: t.topic,
+      topic: "",
       task_type: t.task_type,
       duration_min: t.duration_min || 0,
       sort_order: 0
